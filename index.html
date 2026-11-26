@@ -20503,6 +20503,18 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
         let stylesHtml = (styleMatch ? styleMatch.join('\n') : '') + (extraCss ? `<style>${extraCss}</style>` : '');
         stylesHtml = stylesHtml.replace(/\bbody\b/gi, '.a4-doc');
         stylesHtml += `<style>.a4-doc, .a4-doc * { box-sizing: border-box !important; max-width: 100% !important; } .a4-doc { width: ${docWidth}px !important; max-width: ${docWidth}px !important; overflow: visible !important; padding: 0 0 20px 0 !important; margin: 0 !important; font-family: 'Noto Serif Tamil', 'Noto Sans Sinhala', 'Times New Roman', serif !important; font-size: ${isLandscape ? '8.5pt' : '9.5pt'}; line-height: 1.48; } .a4-doc .phi-pdf-section { padding-bottom: 14px !important; border-bottom: none !important; border-top: none !important; } .a4-doc table { width: 100% !important; max-width: 100% !important; min-width: 0 !important; border-collapse: collapse !important; } .a4-doc td, .a4-doc th { overflow-wrap: break-word !important; word-wrap: break-word !important; } ${isLegalSections ? `.a4-doc .phi-pdf-section, .a4-doc .phi-pdf-section p, .a4-doc .phi-pdf-section li, .a4-doc .phi-pdf-section div, .a4-doc .phi-pdf-section span, .a4-doc .phi-pdf-section pre { font-family: 'Noto Serif Tamil', 'Noto Sans Sinhala', 'Times New Roman', serif !important; font-size: 10.2pt !important; line-height: 1.55 !important; } .a4-doc .phi-pdf-section .phi-legal-title { font-size: 12.2pt !important; font-weight: 700 !important; text-decoration: none !important; margin-top: 3px !important; } .a4-doc .phi-pdf-section .phi-legal-subtitle { font-size: 10.8pt !important; font-weight: 700 !important; } .a4-doc .phi-pdf-section ol { padding-left: 22px !important; list-style-type: decimal !important; margin: 4px 0 6px 0 !important; } .a4-doc .phi-pdf-section li { margin-bottom: 5px !important; } .a4-doc .phi-pdf-section pre { white-space: pre-wrap !important; word-wrap: break-word !important; margin: 4px 0 !important; } .a4-doc .phi-pdf-section p { margin: 4px 0 !important; }` : ''}</style>`;
+        if (isSingleA4Pdf) {
+          const targetPxH = Math.floor(docWidth * (usableHmm / usableWmm)) - 16;
+          stylesHtml += `<style>
+            .a4-doc { padding: 0 !important; }
+            .h510-single-a4 { width: 100% !important; min-height: ${targetPxH}px !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; font-size: 9pt !important; line-height: 1.24 !important; }
+            .h510-single-a4 table:not(.h510-meta-tbl) { width: 100% !important; margin-top: 4px !important; flex: 1 1 auto !important; }
+            .h510-single-a4 table:not(.h510-meta-tbl) th { padding: 3.5px 5px !important; font-size: 8.8pt !important; line-height: 1.2 !important; background: #f1f5f9 !important; border: 1px solid #0f172a !important; }
+            .h510-single-a4 table:not(.h510-meta-tbl) td { padding: 2.8px 5px !important; font-size: 8.5pt !important; line-height: 1.22 !important; border: 1px solid #0f172a !important; }
+            .h510-single-a4 table.h510-meta-tbl,
+            .h510-single-a4 table.h510-meta-tbl td { border: none !important; font-size: 8.6pt !important; line-height: 1.25 !important; }
+          </style>`;
+        }
         host.innerHTML = stylesHtml + `<div class="a4-doc" style="font-family:'Noto Serif Tamil','Noto Sans Sinhala','Times New Roman',serif;padding:0;background:#ffffff;color:#0f172a;">${bodyInner}</div>`;
         host.querySelectorAll('.no-print, button').forEach(el => el.remove());
 
@@ -20673,11 +20685,9 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
           const fullH_mm = (canvas.height / canvas.width) * usableWmm;
           if (isSingleA4Pdf) {
             if (pageCountOut > 0) pdf.addPage();
-            const fitScale = fullH_mm > usableHmm ? (usableHmm / fullH_mm) : 1;
-            const drawW = usableWmm * fitScale;
-            const drawH = fullH_mm * fitScale;
-            const offsetX = marginMm + ((usableWmm - drawW) / 2);
-            pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', offsetX, marginMm, drawW, drawH);
+            const drawW = usableWmm;
+            const drawH = Math.min(fullH_mm, usableHmm);
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', marginMm, marginMm, drawW, drawH);
             pageCountOut++;
           } else if (fullH_mm <= usableHmm + 1) {
             if (pageCountOut > 0) pdf.addPage();
@@ -20762,13 +20772,13 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
         div, section, p, pre { max-width: 100% !important; }
         .no-print { display: none !important; }
         ${isSingleA4 ? `
-          html, body { font-size: 8.2pt !important; line-height: 1.15 !important; }
-          .h510-single-a4 { width: 100%; }
-          .h510-single-a4 table:not(.h510-meta-tbl) { margin-top: 3px !important; }
-          .h510-single-a4 table:not(.h510-meta-tbl) th,
-          .h510-single-a4 table:not(.h510-meta-tbl) td { padding: 1.6px 4px !important; font-size: 7.7pt !important; line-height: 1.12 !important; }
+          html, body { width: 100% !important; height: 100% !important; font-size: 9pt !important; line-height: 1.24 !important; }
+          .h510-single-a4 { width: 100% !important; min-height: 280mm !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; }
+          .h510-single-a4 table:not(.h510-meta-tbl) { width: 100% !important; margin-top: 4px !important; flex: 1 1 auto !important; }
+          .h510-single-a4 table:not(.h510-meta-tbl) th { padding: 3.5px 5px !important; font-size: 8.8pt !important; line-height: 1.2 !important; }
+          .h510-single-a4 table:not(.h510-meta-tbl) td { padding: 2.8px 5px !important; font-size: 8.5pt !important; line-height: 1.22 !important; }
           .h510-single-a4 table.h510-meta-tbl,
-          .h510-single-a4 table.h510-meta-tbl td { border: none !important; font-size: 7.8pt !important; line-height: 1.18 !important; }
+          .h510-single-a4 table.h510-meta-tbl td { border: none !important; font-size: 8.6pt !important; line-height: 1.25 !important; }
         ` : ''}
         .font-semibold { font-weight: 600; }
         .mt-0\.5 { margin-top: 2px; }
@@ -23707,7 +23717,7 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
                     </tr>
                   </table>
                 </td>
-                <td style="border:none !important; padding:1px 0 1px 4px !important; width:36%; text-align:right; vertical-align:top; font-weight:700; white-space:nowrap;">SATURDAY :- 07:30 AM – 13:00 PM FIELD</td>
+                <td style="border:none !important; padding:1px 0 1px 4px !important; width:36%; text-align:right; vertical-align:top; font-weight:700; white-space:nowrap;">SATURDAY :- 08:00 AM – 13:00 PM – FIELD WORK</td>
               </tr>
             </table>
             <table class="w-full border-collapse border border-slate-900 text-left">
@@ -24326,7 +24336,7 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
                     </tr>
                   </table>
                 </td>
-                <td style="border:none !important; padding:1px 0 1px 4px !important; width:36%; text-align:right; vertical-align:top; font-weight:700; white-space:nowrap;">SATURDAY :- 07:30 AM – 13:00 PM FIELD</td>
+                <td style="border:none !important; padding:1px 0 1px 4px !important; width:36%; text-align:right; vertical-align:top; font-weight:700; white-space:nowrap;">SATURDAY :- 08:00 AM – 13:00 PM – FIELD WORK</td>
               </tr>
             </table>
             <table class="w-full border-collapse border border-slate-900 text-left">
@@ -29006,7 +29016,7 @@ function doPost(e) {
     // =========================================================================
     // PHI SMART OFFICE — AUTOMATIC BOOKMARK / HOME SCREEN LIVE UPDATE ENGINE
     // =========================================================================
-    const PHI_APP_BUILD = '2026.11.25.40';
+    const PHI_APP_BUILD = '2026.11.25.41';
 
     async function clearStaleWebCaches() {
       try {
