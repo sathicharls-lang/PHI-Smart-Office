@@ -830,7 +830,8 @@ function doGet() {
       { id: 'gis', num: '11', en: 'GIS Mapping', enSub: 'GN Division Risk & Hotspot Map', ta: 'GN பிரிவு அபாய வரைபடம்', si: 'අවදානම් සිතියම්කරණය', siSub: 'ග්‍රාම නිලධාරී වසම් සිතියම', active: true },
       { id: 'hr', num: '12', en: 'Inventory & HR Management', enSub: 'Stock, Equipment & Staff', ta: 'இருப்பு & பணியாளர் மேலாண்மை', si: 'බඩු තොග සහ කාර්ය මණ්ඩලය', siSub: 'උපකරණ සහ සේවක කළමනාකරණය', active: true },
       { id: 'ai', num: '13', en: 'AI-Based Public Health Analytics', enSub: 'Gemini AI Outbreak & Policy Briefs', ta: 'AI பொது சுகாதார பகுப்பாய்வு', si: 'AI මහජන සෞඛ්‍ය විශ්ලේෂණය', siSub: 'ස්මාර්ට් දත්ත විශ්ලේෂණය', active: true },
-      { id: 'h510', num: '14', en: 'Forms & Office Boards', enSub: 'H-510, H-1016, Registers & Boards', ta: 'H-510 & அலுவலகப் படிவங்கள்', si: 'කාර්යාල පෝරම සහ පුවරු', siSub: 'H-510, H-1016 සහ ලේඛන පුවරු', active: true }
+      { id: 'h510', num: '14', en: 'Forms & Office Boards', enSub: 'H-510, H-1016, Registers & Boards', ta: 'H-510 & அலுவலகப் படிவங்கள்', si: 'කාර්යාල පෝරම සහ පුවරු', siSub: 'H-510, H-1016 සහ ලේඛන පුවරු', active: true },
+      { id: 'files', num: '15', en: 'Files & Documents', enSub: 'Archive, Edit & Re-download All Docs', ta: 'ஆவணக் காப்பகம் & கோப்புகள்', si: 'ලිපිගොනු සහ ලේඛන', siSub: 'සියලුම ලේඛන සංරක්ෂණය', active: true }
     ];
 
     const SAMPLE_GUIDE = {
@@ -883,6 +884,7 @@ function doGet() {
       envBurialGrounds: [],
       envPestLogs: [],
       h510V1: { months: {}, approvalNote: 'SUBMITTED FOR YOUR APPROVAL PLEASE' },
+      savedDocuments: [],
       occFactories: [],
       occInspections: [],
       occHazards: [],
@@ -2385,6 +2387,7 @@ function doGet() {
               envBurialGrounds: Array.isArray(parsed.envBurialGrounds) ? parsed.envBurialGrounds : [],
               envPestLogs: Array.isArray(parsed.envPestLogs) ? parsed.envPestLogs : [],
               h510V1: (parsed.h510V1 && typeof parsed.h510V1 === 'object') ? parsed.h510V1 : { months: {}, approvalNote: 'SUBMITTED FOR YOUR APPROVAL PLEASE' },
+              savedDocuments: Array.isArray(parsed.savedDocuments) ? parsed.savedDocuments : [],
               occFactories: Array.isArray(parsed.occFactories) ? parsed.occFactories : [],
               occInspections: Array.isArray(parsed.occInspections) ? parsed.occInspections : [],
               occHazards: Array.isArray(parsed.occHazards) ? parsed.occHazards : [],
@@ -8208,7 +8211,9 @@ function doGet() {
       const exportFoodWordDoc = (bodyHtml, fileBase) => {
         const cleanBody = String(bodyHtml || '').replace(/<div[^>]*class="[^"]*no-print[^"]*"[\s\S]*?<\/div>/gi, '');
         const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:14mm 14mm;}body{font-family:'Noto Serif Tamil','Noto Sans Sinhala','Times New Roman',serif;font-size:10pt;line-height:1.52;color:#0f172a;margin:0;padding:0;}p,div,li,span,pre{font-family:'Noto Serif Tamil','Noto Sans Sinhala','Times New Roman',serif;font-size:10pt;line-height:1.52;}pre{white-space:pre-wrap;word-wrap:break-word;margin:4px 0;}ol,ul{margin:4px 0 6px 0;padding-left:22px;}li{margin-bottom:4px;text-align:justify;}.text-center{text-align:center;}.text-right{text-align:right;}.text-justify{text-align:justify;}.font-bold,.font-semibold{font-weight:700;}.phi-legal-title{font-size:12pt;font-weight:700;text-decoration:none;margin-top:3px;}.phi-legal-subtitle{font-size:10.5pt;font-weight:700;}.phi-pdf-section{border:none !important;padding-bottom:0 !important;}.no-print{display:none !important;}table{border-collapse:collapse;width:100%;font-size:9.5pt;}th,td{border:1px solid #222;padding:5px 6px;vertical-align:top;}h1,h2,h3{margin:4px 0;}</style></head><body>${cleanBody}</body></html>`;
-        triggerBlobDownload(new Blob(['\uFEFF' + wordHtml], { type: 'application/msword;charset=utf-8' }), `${fileBase.replace(/[^a-zA-Z0-9_\-\u0B80-\u0BFF]/g, '_')}.doc`);
+        const _oMeta = typeof buildSmartDocMeta === 'function' ? buildSmartDocMeta(fileBase, 'doc', cleanBody) : { fileName: fileBase + '.doc' };
+      try { if (typeof archiveGeneratedDocument === 'function') archiveGeneratedDocument(fileBase, cleanBody, 'Word .doc', false); } catch (e) {}
+      triggerBlobDownload(new Blob(['\uFEFF' + wordHtml], { type: 'application/msword;charset=utf-8' }), _oMeta.fileName);
         showToast('📝 Word (.doc) ஆவணம் பதிவிறக்கப்பட்டது!');
       };
 
@@ -9829,7 +9834,9 @@ function doGet() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = (filename || 'Environmental_Health_Report').replace(/[^a-zA-Z0-9_\-\u0B80-\u0BFF]/g, '_') + '.doc';
+      const _wMeta = typeof buildSmartDocMeta === 'function' ? buildSmartDocMeta(filename, 'doc', bodyHtml) : { fileName: (filename || 'PHI_Report') + '.doc' };
+      try { if (typeof archiveGeneratedDocument === 'function') archiveGeneratedDocument(filename, bodyHtml, 'Word .doc', false); } catch (e) {}
+      a.download = _wMeta.fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -20688,7 +20695,9 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
             }
           }
         }
-        const safeName = String(title || 'PHI_Document').replace(/[^a-zA-Z0-9_\-\u0B80-\u0BFF ]+/g, '_').trim().slice(0, 60) || 'PHI_Document';
+        const _docMeta = typeof buildSmartDocMeta === 'function' ? buildSmartDocMeta(title, 'pdf', rawHtml) : { smartBaseName: String(title || 'PHI_Document').replace(/[^a-zA-Z0-9_\-\u0B80-\u0BFF ]+/g, '_').trim().slice(0, 60) || 'PHI_Document' };
+        const safeName = _docMeta.smartBaseName;
+        try { if (typeof archiveGeneratedDocument === 'function') archiveGeneratedDocument(title, rawHtml, 'PDF', isLandscape); } catch (e) {}
         if (window.__phiReturnPdfBlob) {
           return { blob: pdf.output('blob'), filename: safeName + '.pdf' };
         }
@@ -20706,6 +20715,7 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
 
     function printA4Sheet(title, innerHtml, isLandscape) {
       isLandscape = resolvePdfOrientation(innerHtml, isLandscape);
+      try { if (typeof archiveGeneratedDocument === 'function') archiveGeneratedDocument(title, innerHtml, 'Print A4', isLandscape); } catch (e) {}
       const pageSize = isLandscape ? 'A4 landscape' : 'A4 portrait';
       const pageMargin = isLandscape ? '12mm 12mm' : '14mm 14mm';
       const baseCss = `
@@ -23337,21 +23347,33 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
       });
 
       // 3. Fixed Monthly Duties with Backward Shift if Holiday / Weekend (Sat, Sun, Poya, PH):
-      // 3a. 1st Friday -> WATER SAMPLING @ ATCHUVELY II AREA (MORNING ONLY; PM gets routine rotation!)
+      // 3a. 1st Friday -> WATER SAMPLING @ ATCHUVELY II AREA (AM) + Dispatch/Office Work paired with rotating GN field duty (PM)
       const rawFri1 = getNthWeekday(5, 1);
       const dayWater = shiftToPrevWorkingDay(rawFri1, fixedLockedDays);
+      const waterPmDuties = [
+        `DENGUE CONTROL WORK @ ${GN_SOUTH}`,
+        `GROCERY INSPECTION @ ${GN_AVAR}`,
+        `ID & TB FOLLOW UP @ ${GN_WEST}`
+      ];
       if (dayWater) {
         if (dayWater !== rawFri1) shiftLog.push(`Water Sampling: ${String(rawFri1).padStart(2,'0')} (${phOf(rawFri1) || 'Holiday'}) → ${String(dayWater).padStart(2,'0')}`);
         plan[dayWater].am = 'WATER SAMPLING @ ATCHUVELY II AREA';
+        plan[dayWater].pm = `WATER SAMPLE DISPATCH / OFFICE WORK / ${waterPmDuties[(mo - 1) % waterPmDuties.length]}`;
         fixedLockedDays.add(dayWater);
       }
 
-      // 3b. 3rd Friday -> FOOD SAMPLING @ ATCHUVELY II AREA (MORNING ONLY; PM gets routine rotation!)
+      // 3b. 3rd Friday -> FOOD SAMPLING @ ATCHUVELY II AREA (AM) + Dispatch/Office Work paired with rotating GN field duty (PM)
       const rawFri3 = getNthWeekday(5, 3);
       const dayFood = shiftToPrevWorkingDay(rawFri3, fixedLockedDays);
+      const foodPmDuties = [
+        `FOOD INSPECTION @ ${GN_WEST}`,
+        `TRADE INSPECTION @ ${GN_SOUTH}`,
+        `DENGUE CONTROL WORK @ ${GN_AVAR}`
+      ];
       if (dayFood) {
         if (dayFood !== rawFri3) shiftLog.push(`Food Sampling: ${String(rawFri3).padStart(2,'0')} (${phOf(rawFri3) || 'Holiday'}) → ${String(dayFood).padStart(2,'0')}`);
         plan[dayFood].am = 'FOOD SAMPLING @ ATCHUVELY II AREA';
+        plan[dayFood].pm = `FOOD SAMPLE DISPATCH / OFFICE WORK / ${foodPmDuties[(mo - 1) % foodPmDuties.length]}`;
         fixedLockedDays.add(dayFood);
       }
 
@@ -23499,6 +23521,20 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
         saveState();
       }
       const mData = state.h510V1.months[h510V1Month];
+      // Auto-upgrade any legacy standalone dispatch PM entries to include a paired field duty
+      let upgradedLegacyPm = false;
+      Object.keys(mData).forEach(k => {
+        const row = mData[k];
+        if (!row) return;
+        if (row.pm === 'WATER SAMPLE DISPATCH / OFFICE WORK') {
+          row.pm = 'WATER SAMPLE DISPATCH / OFFICE WORK / DENGUE CONTROL WORK @ ATCHUVELY SOUTH';
+          upgradedLegacyPm = true;
+        } else if (row.pm === 'FOOD SAMPLE DISPATCH / OFFICE WORK') {
+          row.pm = 'FOOD SAMPLE DISPATCH / OFFICE WORK / FOOD INSPECTION @ ATCHUVELY WEST';
+          upgradedLegacyPm = true;
+        }
+      });
+      if (upgradedLegacyPm) saveState();
       const shiftLog = state.h510V1.shiftLogs[h510V1Month] || [];
       const annualInfo = getAnnualAdvanceEventsForMonth(yr, mo);
 
@@ -24605,6 +24641,587 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
       });
     }
 
+    // ==================== 15. FILES & DOCUMENTS VAULT (26 FORM FOLDERS) + UNIVERSAL SUB-TAB PAGE ENGINE ====================
+    let _phiSkipDocArchive = false;
+    let filesSearchQuery = '';
+    let filesFolderFilter = 'ALL';
+    let filesYearFilter = 'ALL';
+    let filesMonthFilter = 'ALL';
+    let filesDateFilter = '';
+    let filesSortMode = 'date_desc'; // date_desc | date_asc | group_ym | group_folder
+    let filesShowAllFolders = true;
+    let filesSelectedId = null;
+    let filesEditMode = false;
+
+    const DOC_FORM_FOLDERS = [
+      { id: 'h510',          name: '📋 H-510 Monthly Advance Programme',              prefix: 'H510_Monthly_Advance',      rx: /h-?510|advance programme of phi/i },
+      { id: 'hedu',          name: '🎓 Health Education Annual Plan',                 prefix: 'Health_Edu_Annual_Plan',    rx: /health education|hedu|சுகாதாரக் கல்வி/i },
+      { id: 'h1016',         name: '🏫 School Health Advance (H-1016)',               prefix: 'School_Health_H1016',       rx: /h-?1016|health 1016|முதற்காரியப்படலம்|முற்கூறிய/i },
+      { id: 'latrine',       name: '🏗️ Latrine Construction Advance Plan',            prefix: 'Latrine_Advance_Plan',      rx: /latrine construction|latrine advance/i },
+      { id: 'food_plaint',   name: '⚖️ Food Safety — Plaint & Charge Sheet',          prefix: 'Food_Plaint_ChargeSheet',   rx: /plaint|charge sheet|குற்றப்பத்திரிகை|முறைப்பாடு|வழக்கு/i },
+      { id: 'food_h800',     name: '🍽️ Food Safety — H-800 & Notices',                prefix: 'Food_H800_Notice',          rx: /h-?800|food notice|seizure|food safety|உணவுப் பாதுகாப்பு/i },
+      { id: 'env_water',     name: '💧 Water Sample Request Form (Ch. 2)',            prefix: 'Water_Sample_Request',      rx: /water sample|bacteriological|குடிநீர் நுண்ணுயிரியல்/i },
+      { id: 'env_nuisance',  name: '🚽 Nuisance & Sanitation Notices (Cap 230)',      prefix: 'Nuisance_Notice_Cap230',    rx: /nuisance|cap\.?\s*230|தொல்லை நிவர்த்தி/i },
+      { id: 'env_waste',     name: '♻️ Solid & Healthcare Waste Audits',              prefix: 'Waste_Management_Audit',    rx: /waste|hcw|swm|01-12\/2006|1534\/18|திடக்கழிவு|மருத்துவக் கழிவு/i },
+      { id: 'env_burial',    name: '⚰️ Burial Ground Reports (Circular 749)',         prefix: 'Burial_Circular749',        rx: /burial|cremation|circular\s*749|மயானம்/i },
+      { id: 'occ_annex1',    name: '🏭 Factory Inspection (Annexure-1)',              prefix: 'Factory_Annexure1',         rx: /annexure-?1|factory inspection|factories ord/i },
+      { id: 'occ_notice',    name: '⚠️ Occupational Health Notices',                  prefix: 'Occ_Health_Notice',         rx: /occupational|தொழில் சுகாதார|தொழிற்சாலை அறிவித்தல்/i },
+      { id: 'dengue',        name: '🦟 Mosquito Control (Act 11/2007)',               prefix: 'Mosquito_Act11_2007',       rx: /dengue|mosquito|act 11\/2007|நுளம்பு/i },
+      { id: 'disease',       name: '🦠 Disease Surveillance (H-544 / H-411)',         prefix: 'Disease_H544_H411',         rx: /h-?544|h-?411|disease surveillance|special investigation|தொற்றுநோய்/i },
+      { id: 'school_smi',    name: '🩺 School Medical Inspection (SMI / H-457)',      prefix: 'School_SMI_H457',           rx: /smi|h-?457|h-?456|school sanitary|பாடசாலை/i },
+      { id: 'ot_approval',   name: '⏰ OT Approval (மேலதிக நேர அனுமதி)',               prefix: 'OT_Approval',               rx: /ot approval|overtime|மேலதிக நேரம்|மேலதிக நேரக்/i },
+      { id: 'special_travel',name: '🚗 Special Travel Approval (விசேட பயணம்)',         prefix: 'Special_Travel_Approval',   rx: /special travel|விசேட பயணம்|விசேட பயணங்களுக்கான/i },
+      { id: 'tel_claim',     name: '📞 Telephone Claim (RDHS Jaffna)',                prefix: 'Telephone_Claim',           rx: /telephone claim|தொலைபேசிக் கொடுப்பனவு/i },
+      { id: 'deviation',     name: '🔀 Deviation of Advance Programme',               prefix: 'Deviation_Advance_Plan',    rx: /deviation|விலகல் அறிக்கை/i },
+      { id: 'biz_reg',       name: '🏢 Business Registration (BR) Report',            prefix: 'Business_Reg_BR',           rx: /business reg|\bbr\b|வியாபார நிலையப் பெயர்/i },
+      { id: 'office_allow',  name: '🏠 Office Allowance Application',                 prefix: 'Office_Allowance',          rx: /office allowance|அலுவலகப்படி/i },
+      { id: 'vehicle',       name: '🏍️ Motor Vehicle Register / Approval',            prefix: 'Motor_Vehicle_Approval',    rx: /motor vehicle|vehicle approval|வாகனப் பதிவு/i },
+      { id: 'courts_prf',    name: '⚖️ Courts PRF (நீதிமன்ற தண்டப்பணம்)',              prefix: 'Courts_PRF',                rx: /courts prf|நீதிமன்ற தண்டப்பணம்/i },
+      { id: 'office_boards', name: '📊 PHI Office Boards (H-795 / H-796 / P43–51)',   prefix: 'PHI_Office_Board',          rx: /health\s*795|health\s*796|page\s*4[3-9]|page\s*5[01]|office board/i },
+      { id: 'office_regs',   name: '📚 Office Registers (Gen 16 / 17 & Visitors)',    prefix: 'Office_Register_Gen16_17',  rx: /gen\.?\s*16|gen\.?\s*17|inward register|outward register|visitors book|அலுவலகப் பதிவேடு/i },
+      { id: 'ai_reports',    name: '🤖 AI Public Health Analysis & SITREP',           prefix: 'AI_Public_Health_Report',   rx: /ai public health|sitrep|gemini|நுண்ணறிவுப் பகுப்பாய்வு/i },
+      { id: 'other',         name: '📄 Other PHI Documents',                          prefix: 'PHI_Document',              rx: /.*/ }
+    ];
+
+    function classifyDocFolder(rawTitle, rawHtml) {
+      const text = (String(rawTitle || '') + ' ' + String(rawHtml || '').replace(/<[^>]+>/g, ' ').slice(0, 500)).toLowerCase();
+      for (const f of DOC_FORM_FOLDERS) {
+        if (f.id === 'other') return f;
+        if (f.rx.test(text)) return f;
+      }
+      return DOC_FORM_FOLDERS[DOC_FORM_FOLDERS.length - 1];
+    }
+
+    function buildSmartDocMeta(rawTitle, ext, rawHtml) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const areaCfg = (typeof state !== 'undefined' && state && state.areaConfig) || (typeof DEFAULT_AREA_CONFIG !== 'undefined' ? DEFAULT_AREA_CONFIG : { phiRange: 'Atchuvely-2' });
+      const rangeSlug = String(areaCfg.phiRange || 'Atchuvely-2').trim().replace(/[^a-zA-Z0-9\-]+/g, '_').replace(/^_+|_+$/g, '') || 'Atchuvely-2';
+      const titleStr = String(rawTitle || '').trim();
+      const folder = classifyDocFolder(titleStr, rawHtml);
+
+      let core = titleStr
+        .replace(/\.(pdf|doc|docx|csv)$/i, '')
+        .replace(/[^a-zA-Z0-9\u0B80-\u0BFF\- ]+/g, ' ')
+        .replace(/\s+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 52);
+      if (!core) core = 'Report';
+
+      const hasPrefix = core.toLowerCase().startsWith(folder.prefix.toLowerCase().split('_')[0]);
+      const hasDate = /\d{4}-\d{2}(-\d{2})?/.test(core);
+      const parts = [];
+      if (!hasPrefix) parts.push(folder.prefix);
+      parts.push(core);
+      if (!core.toLowerCase().includes(rangeSlug.toLowerCase())) parts.push(rangeSlug);
+      if (!hasDate) parts.push(todayIso);
+
+      const smartBaseName = parts.join('_').replace(/_+/g, '_').slice(0, 96);
+      const cleanExt = String(ext || 'pdf').replace(/^\./, '').toLowerCase();
+      const displayTitle = titleStr || `${folder.name.replace(/^[^\w\u0B80-\u0BFF]+/, '')} — ${todayIso}`;
+      return {
+        folderId: folder.id,
+        category: folder.name,
+        prefix: folder.prefix,
+        displayTitle,
+        smartBaseName,
+        fileName: `${smartBaseName}.${cleanExt}`,
+        date: todayIso,
+        year: todayIso.slice(0, 4),
+        month: todayIso.slice(0, 7)
+      };
+    }
+
+    function archiveGeneratedDocument(rawTitle, rawHtml, formatLabel, isLandscape) {
+      if (_phiSkipDocArchive) return null;
+      if (!rawHtml || String(rawHtml).trim().length < 20) return null;
+      if (!Array.isArray(state.savedDocuments)) state.savedDocuments = [];
+      const ext = formatLabel === 'Word .doc' ? 'doc' : 'pdf';
+      const meta = buildSmartDocMeta(rawTitle, ext, rawHtml);
+      const nowTime = new Date().toTimeString().slice(0, 5);
+      const cleanHtml = String(rawHtml).replace(/<script[\s\S]*?<\/script>/gi, '');
+
+      const existing = state.savedDocuments.slice(0, 10).find(d => d.displayTitle === meta.displayTitle && d.date === meta.date && d.format === formatLabel);
+      if (existing) {
+        existing.htmlContent = cleanHtml;
+        existing.fileName = meta.fileName;
+        existing.folderId = meta.folderId;
+        existing.category = meta.category;
+        existing.time = nowTime;
+        existing.isLandscape = Boolean(isLandscape);
+        saveState();
+        return existing;
+      }
+
+      const rec = {
+        id: 'doc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        displayTitle: meta.displayTitle,
+        fileName: meta.fileName,
+        folderId: meta.folderId,
+        category: meta.category,
+        format: formatLabel || 'PDF',
+        date: meta.date,
+        year: meta.year,
+        month: meta.month,
+        time: nowTime,
+        isLandscape: Boolean(isLandscape),
+        sourceModule: typeof activeModule !== 'undefined' ? activeModule : 'h510',
+        htmlContent: cleanHtml
+      };
+      state.savedDocuments.unshift(rec);
+      if (state.savedDocuments.length > 150) state.savedDocuments = state.savedDocuments.slice(0, 150);
+      saveState();
+      return rec;
+    }
+
+    function fmtDmy(iso) {
+      if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '—';
+      const [y, m, d] = iso.split('-');
+      return `${d}-${m}-${y}`;
+    }
+
+    // ==================== UNIVERSAL MOBILE-FIRST SEPARATE-PAGE SUB-TAB ENGINE ====================
+    let subTabFocusState = { active: false, modId: '', label: '' };
+    const SUBTAB_BTN_SELECTOR = '[data-forms-tab],[data-env-tab],[data-occ-tab],[data-food-tab],[data-sch-tab],[data-den-tab],[data-dis-subtab],[data-diary-tab],[data-hh-tab],[data-hr-tab],[data-rb-tab],[data-reg-tab]';
+
+    function attachUniversalSubTabFocus(container) {
+      if (!container) return;
+      const curMod = typeof activeModule !== 'undefined' ? activeModule : '';
+      if (subTabFocusState.modId && subTabFocusState.modId !== curMod) {
+        subTabFocusState = { active: false, modId: curMod, label: '' };
+      }
+
+      const allTabBtns = Array.from(container.querySelectorAll(SUBTAB_BTN_SELECTOR));
+      if (allTabBtns.length < 2) return;
+
+      // Identify distinct sub-tab bar containers
+      const barSet = new Set();
+      allTabBtns.forEach(btn => {
+        const bar = btn.parentElement;
+        if (bar && bar.querySelectorAll(SUBTAB_BTN_SELECTOR).length >= 2) barSet.add(bar);
+        if (!btn.dataset.phiSubtabHooked) {
+          btn.dataset.phiSubtabHooked = '1';
+          btn.addEventListener('click', () => {
+            subTabFocusState = { active: true, modId: curMod, label: (btn.textContent || '').trim() };
+            try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch (e) { try { window.scrollTo(0, 0); } catch (e2) {} }
+          }, true);
+        }
+      });
+
+      const bars = Array.from(barSet);
+      if (!bars.length) return;
+
+      // Remove any stale focus header before re-injecting
+      container.querySelectorAll('.phi-subtab-focus-bar').forEach(el => el.remove());
+
+      if (subTabFocusState.active && subTabFocusState.modId === curMod) {
+        // Collapse tall multi-row sub-tab bars so the sub-tab opens as a clean dedicated page!
+        bars.forEach(b => { b.style.display = 'none'; });
+
+        const focusBar = document.createElement('div');
+        focusBar.className = 'phi-subtab-focus-bar sticky top-0 z-30 bg-teal-900 text-white px-3 py-2 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-2 mb-3';
+        focusBar.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0">
+            <button type="button" class="phi-subtab-back-btn px-3 py-1.5 rounded-xl bg-white text-teal-950 hover:bg-teal-50 text-xs font-extrabold cursor-pointer whitespace-nowrap">← உபதாவல்கள்</button>
+            <span class="text-xs font-bold truncate">${escapeHtml(subTabFocusState.label || 'Sub-Tab View')}</span>
+          </div>
+          <button type="button" class="phi-subtab-newwin-btn px-2.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white text-[11px] font-bold cursor-pointer whitespace-nowrap" title="தனி விண்டோவில் திறக்க">↗ புதிய விண்டோ</button>
+        `;
+        container.insertBefore(focusBar, container.firstChild);
+
+        focusBar.querySelector('.phi-subtab-back-btn')?.addEventListener('click', () => {
+          subTabFocusState.active = false;
+          bars.forEach(b => { b.style.display = ''; });
+          focusBar.remove();
+          try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+        });
+
+        focusBar.querySelector('.phi-subtab-newwin-btn')?.addEventListener('click', () => {
+          const w = window.open('', '_blank', 'width=1120,height=820');
+          if (!w) { showToast('⚠️ Browser popup தடுக்கப்பட்டுள்ளது — இதே பக்கத்திலேயே முழுத் திரையில் பார்க்கலாம்.'); return; }
+          const cloneHtml = container.innerHTML;
+          w.document.write(`<!DOCTYPE html><html lang="ta"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${escapeHtml(subTabFocusState.label || 'PHI Smart Office')}</title><script src="https://cdn.tailwindcss.com"><\/script><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Tamil:wght@400;600;700&display=swap" rel="stylesheet"/><style>body{font-family:'Noto Serif Tamil',sans-serif;background:#f8fafc;padding:16px;} .phi-subtab-focus-bar{display:none!important;}</style></head><body><div class="max-w-6xl mx-auto space-y-4">${cloneHtml}</div></body></html>`);
+          w.document.close();
+        });
+      }
+    }
+
+    function renderFilesModule(container) {
+      if (!Array.isArray(state.savedDocuments)) state.savedDocuments = [];
+      // Ensure every saved document has an exact folderId & named form folder
+      let migrated = false;
+      state.savedDocuments.forEach(d => {
+        if (!d.folderId || !DOC_FORM_FOLDERS.some(f => f.id === d.folderId)) {
+          const f = classifyDocFolder(d.displayTitle || d.fileName, d.htmlContent || '');
+          d.folderId = f.id;
+          d.category = f.name;
+          migrated = true;
+        }
+      });
+      if (migrated) saveState();
+
+      const docs = state.savedDocuments;
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const curYm = todayIso.slice(0, 7);
+
+      // Folder counts
+      const folderCounts = {};
+      DOC_FORM_FOLDERS.forEach(f => { folderCounts[f.id] = 0; });
+      docs.forEach(d => { folderCounts[d.folderId || 'other'] = (folderCounts[d.folderId || 'other'] || 0) + 1; });
+
+      const allYears = Array.from(new Set(docs.map(d => d.year || (d.date || '').slice(0, 4)).filter(Boolean))).sort().reverse();
+      const monthNamesTa = ['ஜனவரி (01)','பெப்ரவரி (02)','மார்ச் (03)','ஏப்ரல் (04)','மே (05)','ஜூன் (06)','ஜூலை (07)','ஆகஸ்ட் (08)','செப்டெம்பர் (09)','ஒக்டோபர் (10)','நவம்பர் (11)','டிசம்பர் (12)'];
+
+      // Filter
+      const q = filesSearchQuery.trim().toLowerCase();
+      let filtered = docs.filter(d => {
+        if (filesFolderFilter !== 'ALL' && d.folderId !== filesFolderFilter) return false;
+        if (filesYearFilter !== 'ALL' && (d.year || (d.date || '').slice(0, 4)) !== filesYearFilter) return false;
+        if (filesMonthFilter !== 'ALL' && (d.date || '').slice(5, 7) !== filesMonthFilter) return false;
+        if (filesDateFilter && d.date !== filesDateFilter) return false;
+        if (q) {
+          const hay = `${d.displayTitle || ''} ${d.fileName || ''} ${d.category || ''} ${d.date || ''} ${d.format || ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        const ka = `${a.date || '0000-00-00'} ${a.time || '00:00'}`;
+        const kb = `${b.date || '0000-00-00'} ${b.time || '00:00'}`;
+        return filesSortMode === 'date_asc' ? ka.localeCompare(kb) : kb.localeCompare(ka);
+      });
+
+      const selectedDoc = docs.find(d => d.id === filesSelectedId) || null;
+      const activeFolderObj = DOC_FORM_FOLDERS.find(f => f.id === filesFolderFilter) || null;
+      const thisMonthCount = docs.filter(d => (d.date || '').startsWith(curYm)).length;
+      const visibleFolders = filesShowAllFolders
+        ? DOC_FORM_FOLDERS
+        : DOC_FORM_FOLDERS.filter(f => (folderCounts[f.id] || 0) > 0);
+
+      const renderDocCard = (d) => {
+        const isSel = selectedDoc && selectedDoc.id === d.id;
+        const fmtCls = d.format === 'PDF' ? 'bg-rose-100 text-rose-800' : d.format === 'Word .doc' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800';
+        return `
+          <div class="p-3.5 rounded-2xl border ${isSel ? 'border-teal-500 bg-teal-50/40 ring-1 ring-teal-400' : 'border-slate-200 bg-white hover:border-slate-300'} shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-[220px] flex-1 space-y-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full ${fmtCls}">${escapeHtml(d.format || 'PDF')}</span>
+                <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800">${escapeHtml(d.category || 'Other PHI Documents')}</span>
+                <span class="text-[11px] font-mono font-semibold text-slate-600">📅 ${escapeHtml(fmtDmy(d.date))} ${d.time ? '• ' + escapeHtml(d.time) : ''}</span>
+              </div>
+              <div class="text-sm font-bold text-slate-800">${escapeHtml(d.displayTitle || d.fileName)}</div>
+              <div class="text-[11px] font-mono text-slate-500 break-all">📄 ${escapeHtml(d.fileName || '')}</div>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" data-f-view="${escapeHtml(d.id)}" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold cursor-pointer">👁️ பார்</button>
+              <button type="button" data-f-edit="${escapeHtml(d.id)}" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold cursor-pointer">✏️ திருத்து</button>
+              <button type="button" data-f-pdf="${escapeHtml(d.id)}" class="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold cursor-pointer">📄 PDF</button>
+              <button type="button" data-f-print="${escapeHtml(d.id)}" class="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer">🖨️ A4</button>
+              <button type="button" data-f-word="${escapeHtml(d.id)}" class="px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold cursor-pointer">📝 Word</button>
+              <button type="button" data-f-del="${escapeHtml(d.id)}" class="px-2 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold cursor-pointer">🗑️</button>
+            </div>
+          </div>
+        `;
+      };
+
+      let listHtml = '';
+      if (filtered.length === 0) {
+        listHtml = `
+          <div class="bg-white border border-dashed border-slate-300 rounded-2xl p-8 text-center space-y-2">
+            <div class="text-3xl">📂</div>
+            <div class="text-sm font-bold text-slate-700">${activeFolderObj ? escapeHtml(activeFolderObj.name) + ' ஃபோல்டரில் ஆவணங்கள் இல்லை' : 'ஆவணங்கள் எதுவும் இல்லை'}</div>
+            <p class="text-xs text-slate-500 max-w-md mx-auto">வெப் ஆப்பின் எந்தப் பகுதியிலாவது PDF, A4 அச்சு அல்லது Word ஆவணம் உருவாக்கினாலும் அது தானாகவே அதற்குரிய ஃபோல்டரில் சேமிக்கப்படும்.</p>
+          </div>
+        `;
+      } else if (filesSortMode === 'group_ym') {
+        const groups = {};
+        filtered.forEach(d => {
+          const k = (d.date || 'Unknown').slice(0, 7);
+          if (!groups[k]) groups[k] = [];
+          groups[k].push(d);
+        });
+        listHtml = Object.keys(groups).sort().reverse().map(ym => `
+          <div class="space-y-2">
+            <div class="bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-800">🗓️ ${escapeHtml(ym)} (${groups[ym].length} ஆவணங்கள்)</div>
+            <div class="space-y-2 pl-1">${groups[ym].map(renderDocCard).join('')}</div>
+          </div>
+        `).join('');
+      } else if (filesSortMode === 'group_folder') {
+        const groups = {};
+        filtered.forEach(d => {
+          const k = d.category || '📄 Other PHI Documents';
+          if (!groups[k]) groups[k] = [];
+          groups[k].push(d);
+        });
+        listHtml = Object.keys(groups).sort().map(cat => `
+          <div class="space-y-2">
+            <div class="bg-indigo-50 border border-indigo-200 px-3.5 py-2 rounded-xl text-xs font-extrabold text-indigo-950">${escapeHtml(cat)} (${groups[cat].length} ஆவணங்கள்)</div>
+            <div class="space-y-2 pl-1">${groups[cat].map(renderDocCard).join('')}</div>
+          </div>
+        `).join('');
+      } else {
+        listHtml = `<div class="space-y-2.5">${filtered.map(renderDocCard).join('')}</div>`;
+      }
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-bold text-slate-800">15. Files &amp; Documents — ஆவணக் காப்பகம் &amp; படிவ ஃபோல்டர்கள்</h2>
+              <p class="text-xs sm:text-sm text-slate-500">ஒவ்வொரு படிவத்திற்கும் தனித்தனி ஃபோல்டர் + ஆண்டு, மாதம், திகதி &amp; பெயர் தேடல், நேரடித் திருத்தம் மற்றும் மறுபதிவிறக்கம்.</p>
+            </div>
+            <button type="button" id="filesNewDocBtn" class="px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold cursor-pointer">+ புதிய A4 ஆவணம் உருவாக்கு</button>
+          </div>
+
+          <!-- KPI Strip -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-500">மொத்த ஆவணங்கள்</div>
+              <div class="text-2xl font-extrabold text-teal-700 mt-1">${docs.length}</div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-500">இம்மாத ஆவணங்கள்</div>
+              <div class="text-2xl font-extrabold text-indigo-700 mt-1">${thisMonthCount}</div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-500">படிவ ஃபோல்டர்கள்</div>
+              <div class="text-2xl font-extrabold text-emerald-700 mt-1">${DOC_FORM_FOLDERS.length}</div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-500">வடிகட்டப்பட்டவை</div>
+              <div class="text-2xl font-extrabold text-slate-800 mt-1">${filtered.length}</div>
+            </div>
+          </div>
+
+          <!-- Visual Form-Specific Folder Explorer -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                ${activeFolderObj
+                  ? `<button type="button" id="filesBackFoldersBtn" class="px-3 py-1 rounded-xl bg-teal-700 text-white text-xs font-bold cursor-pointer">← அனைத்து ஃபோல்டர்கள்</button><span class="text-xs font-extrabold text-teal-900">${escapeHtml(activeFolderObj.name)}</span>`
+                  : `<span class="text-xs font-extrabold text-slate-800">🗂️ படிவங்களின் பெயர்களிலான தனித்தனி ஃபோல்டர்கள் (Form Folders)</span>`
+                }
+              </div>
+              <button type="button" id="filesToggleAllFoldersBtn" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold cursor-pointer">${filesShowAllFolders ? '📂 ஆவணங்கள் உள்ளவை மட்டும்' : '🗂️ அனைத்து 27 ஃபோல்டர்களையும் காட்டு'}</button>
+            </div>
+            ${!activeFolderObj ? `
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                ${visibleFolders.map(f => {
+                  const cnt = folderCounts[f.id] || 0;
+                  return `
+                    <button type="button" data-open-folder="${f.id}" class="text-left p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${cnt > 0 ? 'bg-teal-50/60 border-teal-200 hover:bg-teal-100/70' : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100'}">
+                      <span class="text-[11.5px] font-bold text-slate-800 leading-snug">${escapeHtml(f.name)}</span>
+                      <span class="px-2 py-0.5 rounded-full text-[10.5px] font-extrabold flex-shrink-0 ${cnt > 0 ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-600'}">${cnt}</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Search & Chronological Filter Bar -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
+              <div class="lg:col-span-2">
+                <label for="filesSearchInp" class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">🔍 தேடல் (பெயர் / படிவம் / திகதி)</label>
+                <input id="filesSearchInp" type="text" value="${escapeHtml(filesSearchQuery)}" placeholder="எ.கா: H510, Water, OT, Plaint, 2027-01..." class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
+              </div>
+              <div>
+                <label for="filesFolderSel" class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">📂 படிவ ஃபோல்டர்</label>
+                <select id="filesFolderSel" class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold">
+                  <option value="ALL">அனைத்து ஃபோல்டர்கள் (${docs.length})</option>
+                  ${DOC_FORM_FOLDERS.map(f => `<option value="${f.id}" ${filesFolderFilter === f.id ? 'selected' : ''}>${escapeHtml(f.name)} (${folderCounts[f.id] || 0})</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label for="filesYearSel" class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">📅 ஆண்டு (Year)</label>
+                <select id="filesYearSel" class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold">
+                  <option value="ALL">அனைத்து ஆண்டுகள்</option>
+                  ${allYears.map(y => `<option value="${y}" ${filesYearFilter === y ? 'selected' : ''}>${y}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label for="filesMonthSel" class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">🗓️ மாதம் (Month)</label>
+                <select id="filesMonthSel" class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold">
+                  <option value="ALL">அனைத்து மாதங்கள்</option>
+                  ${monthNamesTa.map((m, idx) => { const mv = String(idx + 1).padStart(2, '0'); return `<option value="${mv}" ${filesMonthFilter === mv ? 'selected' : ''}>${m}</option>`; }).join('')}
+                </select>
+              </div>
+              <div>
+                <label for="filesDateInp" class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">📌 குறித்த திகதி</label>
+                <input id="filesDateInp" type="date" value="${escapeHtml(filesDateFilter)}" class="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs" />
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-[11px] font-bold text-slate-600">வரிசைப்படுத்தல்:</span>
+                ${[
+                  ['date_desc', '📅 திகதி-மாதம்-ஆண்டு (புதியது முதல்)'],
+                  ['date_asc', '📅 திகதி-மாதம்-ஆண்டு (பழையது முதல்)'],
+                  ['group_ym', '🗓️ ஆண்டு & மாதம் வாரியாக'],
+                  ['group_folder', '📂 ஃபோல்டர் வாரியாக']
+                ].map(([mId, mLbl]) => `<button type="button" data-f-sort="${mId}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer ${filesSortMode === mId ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">${mLbl}</button>`).join('')}
+              </div>
+              ${(filesSearchQuery || filesFolderFilter !== 'ALL' || filesYearFilter !== 'ALL' || filesMonthFilter !== 'ALL' || filesDateFilter) ? '<button type="button" id="filesResetFiltersBtn" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 text-[11px] font-bold cursor-pointer">✕ வடிகட்டலை நீக்கு</button>' : ''}
+            </div>
+          </div>
+
+          <!-- Live Viewer / Editor Panel -->
+          ${selectedDoc ? `
+            <div class="bg-white p-5 rounded-2xl border-2 ${filesEditMode ? 'border-amber-400' : 'border-teal-400'} shadow-md space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                <div>
+                  <span class="text-xs font-extrabold ${filesEditMode ? 'text-amber-800' : 'text-teal-900'}">${filesEditMode ? '✏️ நேரடி ஆவணத் திருத்தப் பயன்முறை (Live A4 Editor)' : '👁️ ஆவண முன்னோட்டம் (Document Viewer)'}</span>
+                  <div class="text-[11px] font-mono text-slate-500">📄 ${escapeHtml(selectedDoc.fileName)}</div>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  ${filesEditMode
+                    ? '<button type="button" id="filesSaveEditBtn" class="px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold cursor-pointer">💾 மாற்றங்களைச் சேமி</button>'
+                    : '<button type="button" id="filesSwitchEditBtn" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold cursor-pointer">✏️ திருத்து</button>'
+                  }
+                  <button type="button" id="filesSelPdfBtn" class="px-3 py-1.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold cursor-pointer">📄 PDF</button>
+                  <button type="button" id="filesSelPrintBtn" class="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer">🖨️ Print A4</button>
+                  <button type="button" id="filesSelWordBtn" class="px-3 py-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold cursor-pointer">📝 Word (.doc)</button>
+                  <button type="button" id="filesCloseViewerBtn" class="px-2.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold cursor-pointer">✕ மூடு</button>
+                </div>
+              </div>
+
+              ${filesEditMode ? `
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5 bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                  <div class="sm:col-span-2">
+                    <label for="filesEditTitle" class="block text-[10px] font-bold text-slate-600 mb-0.5">ஆவணத்தின் தலைப்பு</label>
+                    <input id="filesEditTitle" type="text" value="${escapeHtml(selectedDoc.displayTitle)}" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold" />
+                  </div>
+                  <div>
+                    <label for="filesEditFolder" class="block text-[10px] font-bold text-slate-600 mb-0.5">படிவ ஃபோல்டர்</label>
+                    <select id="filesEditFolder" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold">
+                      ${DOC_FORM_FOLDERS.map(f => `<option value="${f.id}" ${selectedDoc.folderId === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div>
+                    <label for="filesEditDate" class="block text-[10px] font-bold text-slate-600 mb-0.5">திகதி</label>
+                    <input id="filesEditDate" type="date" value="${escapeHtml(selectedDoc.date || todayIso)}" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs" />
+                  </div>
+                </div>
+              ` : ''}
+
+              <div id="filesViewerBody" ${filesEditMode ? 'contenteditable="true"' : ''} class="border ${filesEditMode ? 'border-amber-400 bg-amber-50/10 ring-2 ring-amber-200' : 'border-slate-300 bg-white'} rounded-xl p-5 overflow-x-auto focus:outline-none">${selectedDoc.htmlContent || ''}</div>
+            </div>
+          ` : ''}
+
+          <!-- Document List -->
+          ${listHtml}
+        </div>
+      `;
+
+      // Bind Folder Grid & Filters
+      container.querySelectorAll('[data-open-folder]').forEach(b => b.addEventListener('click', () => {
+        filesFolderFilter = b.dataset.openFolder;
+        render();
+      }));
+      document.getElementById('filesBackFoldersBtn')?.addEventListener('click', () => { filesFolderFilter = 'ALL'; render(); });
+      document.getElementById('filesToggleAllFoldersBtn')?.addEventListener('click', () => { filesShowAllFolders = !filesShowAllFolders; render(); });
+      document.getElementById('filesSearchInp')?.addEventListener('input', e => { filesSearchQuery = e.target.value; render(); });
+      document.getElementById('filesFolderSel')?.addEventListener('change', e => { filesFolderFilter = e.target.value; render(); });
+      document.getElementById('filesYearSel')?.addEventListener('change', e => { filesYearFilter = e.target.value; render(); });
+      document.getElementById('filesMonthSel')?.addEventListener('change', e => { filesMonthFilter = e.target.value; render(); });
+      document.getElementById('filesDateInp')?.addEventListener('change', e => { filesDateFilter = e.target.value; render(); });
+      container.querySelectorAll('[data-f-sort]').forEach(b => b.addEventListener('click', () => { filesSortMode = b.dataset.fSort; render(); }));
+      document.getElementById('filesResetFiltersBtn')?.addEventListener('click', () => {
+        filesSearchQuery = ''; filesFolderFilter = 'ALL'; filesYearFilter = 'ALL'; filesMonthFilter = 'ALL'; filesDateFilter = '';
+        render();
+      });
+
+      document.getElementById('filesNewDocBtn')?.addEventListener('click', () => {
+        const tmpl = `
+          <div style="font-family:'Noto Serif Tamil','Nirmala UI',serif; color:#0f172a; line-height:1.6; font-size:11pt;">
+            <div style="text-align:center; border-bottom:2px solid #0f172a; padding-bottom:8px; margin-bottom:12px;">
+              <div style="font-size:9.5pt; font-weight:700;">சுகாதார வைத்திய அதிகாரி அலுவலகம் — கோப்பாய் | அச்சுவேலி-2 PHI பிரிவு</div>
+              <h2 style="font-size:13.5pt; font-weight:800; margin:4px 0 2px;">புதிய அலுவலக ஆவணம் / அறிக்கை</h2>
+              <div style="font-size:9.5pt;">திகதி: ${fmtDmy(todayIso)}</div>
+            </div>
+            <p>இங்கே உங்கள் ஆவணத்தின் உள்ளடக்கத்தை நேரடியாகத் தட்டச்சு செய்யவும்...</p>
+          </div>
+        `;
+        const meta = buildSmartDocMeta(`PHI_Office_Report_${todayIso}`, 'pdf', tmpl);
+        const newDoc = {
+          id: 'doc-' + Date.now(),
+          displayTitle: `புதிய அலுவலக அறிக்கை (${fmtDmy(todayIso)})`,
+          fileName: meta.fileName,
+          folderId: filesFolderFilter !== 'ALL' ? filesFolderFilter : 'other',
+          category: (DOC_FORM_FOLDERS.find(f => f.id === (filesFolderFilter !== 'ALL' ? filesFolderFilter : 'other')) || DOC_FORM_FOLDERS[DOC_FORM_FOLDERS.length - 1]).name,
+          format: 'PDF',
+          date: todayIso,
+          year: todayIso.slice(0, 4),
+          month: todayIso.slice(0, 7),
+          time: new Date().toTimeString().slice(0, 5),
+          isLandscape: false,
+          sourceModule: 'files',
+          htmlContent: tmpl
+        };
+        state.savedDocuments.unshift(newDoc);
+        filesSelectedId = newDoc.id;
+        filesEditMode = true;
+        saveState();
+        showToast('📝 புதிய A4 ஆவணம் உருவாக்கப்பட்டது!');
+        render();
+      });
+
+      const redownloadDoc = (d, mode) => {
+        if (!d) return;
+        const body = (selectedDoc && selectedDoc.id === d.id && filesEditMode && document.getElementById('filesViewerBody'))
+          ? document.getElementById('filesViewerBody').innerHTML
+          : d.htmlContent;
+        _phiSkipDocArchive = true;
+        try {
+          if (mode === 'pdf') downloadHtmlAsPdf(body, d.displayTitle || d.fileName, d.isLandscape);
+          else if (mode === 'print') printA4Sheet(d.displayTitle || d.fileName, body, d.isLandscape);
+          else if (mode === 'word') exportEnvWordDoc(body, d.displayTitle || d.fileName);
+        } finally {
+          setTimeout(() => { _phiSkipDocArchive = false; }, 400);
+        }
+      };
+
+      container.querySelectorAll('[data-f-view]').forEach(b => b.addEventListener('click', () => { filesSelectedId = b.dataset.fView; filesEditMode = false; render(); }));
+      container.querySelectorAll('[data-f-edit]').forEach(b => b.addEventListener('click', () => { filesSelectedId = b.dataset.fEdit; filesEditMode = true; render(); }));
+      container.querySelectorAll('[data-f-pdf]').forEach(b => b.addEventListener('click', () => redownloadDoc(docs.find(x => x.id === b.dataset.fPdf), 'pdf')));
+      container.querySelectorAll('[data-f-print]').forEach(b => b.addEventListener('click', () => redownloadDoc(docs.find(x => x.id === b.dataset.fPrint), 'print')));
+      container.querySelectorAll('[data-f-word]').forEach(b => b.addEventListener('click', () => redownloadDoc(docs.find(x => x.id === b.dataset.fWord), 'word')));
+      container.querySelectorAll('[data-f-del]').forEach(b => b.addEventListener('click', () => {
+        state.savedDocuments = state.savedDocuments.filter(x => x.id !== b.dataset.fDel);
+        if (filesSelectedId === b.dataset.fDel) filesSelectedId = null;
+        saveState(); showToast('🗑️ ஆவணம் நீக்கப்பட்டது.'); render();
+      }));
+
+      document.getElementById('filesSwitchEditBtn')?.addEventListener('click', () => { filesEditMode = true; render(); });
+      document.getElementById('filesCloseViewerBtn')?.addEventListener('click', () => { filesSelectedId = null; filesEditMode = false; render(); });
+      document.getElementById('filesSaveEditBtn')?.addEventListener('click', () => {
+        if (!selectedDoc) return;
+        const newTitle = document.getElementById('filesEditTitle')?.value.trim() || selectedDoc.displayTitle;
+        const newFolderId = document.getElementById('filesEditFolder')?.value || selectedDoc.folderId;
+        const fObj = DOC_FORM_FOLDERS.find(f => f.id === newFolderId) || DOC_FORM_FOLDERS[DOC_FORM_FOLDERS.length - 1];
+        const newDate = document.getElementById('filesEditDate')?.value || selectedDoc.date;
+        const newHtml = document.getElementById('filesViewerBody')?.innerHTML || selectedDoc.htmlContent;
+        const ext = selectedDoc.format === 'Word .doc' ? 'doc' : 'pdf';
+        const meta = buildSmartDocMeta(newTitle, ext, newHtml);
+        selectedDoc.displayTitle = newTitle;
+        selectedDoc.folderId = fObj.id;
+        selectedDoc.category = fObj.name;
+        selectedDoc.date = newDate;
+        selectedDoc.year = newDate.slice(0, 4);
+        selectedDoc.month = newDate.slice(0, 7);
+        selectedDoc.fileName = meta.fileName;
+        selectedDoc.htmlContent = newHtml;
+        filesEditMode = false;
+        saveState();
+        showToast('💾 ஆவண மாற்றங்கள் சேமிக்கப்பட்டன!');
+        render();
+      });
+      document.getElementById('filesSelPdfBtn')?.addEventListener('click', () => redownloadDoc(selectedDoc, 'pdf'));
+      document.getElementById('filesSelPrintBtn')?.addEventListener('click', () => redownloadDoc(selectedDoc, 'print'));
+      document.getElementById('filesSelWordBtn')?.addEventListener('click', () => redownloadDoc(selectedDoc, 'word'));
+    }
+
     const NAV_STATE_KEY = 'phi_smart_office_nav_v1';
     function saveNavState() {
       try {
@@ -24672,6 +25289,7 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
         else if (mod.id === 'hr') renderHrInventoryModule(container);
         else if (mod.id === 'ai') renderAiModule(container);
         else if (mod.id === 'h510') renderH510Module(container);
+        else if (mod.id === 'files') renderFilesModule(container);
       } catch (err) {
         console.error('Module render error:', mod.id, err);
         container.innerHTML = `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 space-y-2 text-xs text-rose-900"><div class="font-bold text-sm">⚠️ இந்தப் பகுதியை ஏற்றுவதில் சிறிய பிழை ஏற்பட்டது</div><div>${escapeHtml(err && err.message ? err.message : String(err))}</div><button type="button" onclick="render()" class="px-3 py-1.5 rounded-lg bg-teal-700 text-white font-semibold cursor-pointer">🔄 மீண்டும் ஏற்றுக</button></div>`;
@@ -24682,6 +25300,7 @@ ${ctx}${historyText ? '\n\nRECENT CONVERSATION CONTEXT:\n' + historyText : ''}`;
         _phiPostRenderRaf = 0;
         try { attachPdfButtonsToPrintControls(container); } catch (e) {}
         try { attachUniversalEditButtons(container); } catch (e) {}
+        try { attachUniversalSubTabFocus(container); } catch (e) {}
       });
     }
 
@@ -28332,7 +28951,7 @@ function doPost(e) {
     // =========================================================================
     // PHI SMART OFFICE — AUTOMATIC BOOKMARK / HOME SCREEN LIVE UPDATE ENGINE
     // =========================================================================
-    const PHI_APP_BUILD = '2026.11.25.36';
+    const PHI_APP_BUILD = '2026.11.25.39';
 
     async function clearStaleWebCaches() {
       try {
